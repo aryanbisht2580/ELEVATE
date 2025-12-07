@@ -1,6 +1,6 @@
 
 import React, { useState } from "react";
-import { Sparkles, LoaderCircle, FileText, Zap, User, Award, TrendingUp } from "lucide-react";
+import { Sparkles, LoaderCircle, FileText, Zap, User, Award, TrendingUp, Briefcase, Wrench, FolderOpen } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useDispatch } from "react-redux";
@@ -18,6 +18,7 @@ function Summary({ resumeInfo, enanbledNext, enanbledPrev }) {
   const [loading, setLoading] = useState(false);
   const [summary, setSummary] = useState(resumeInfo?.summary || "");
   const [aiGeneratedSummeryList, setAiGenerateSummeryList] = useState(null);
+  const [jobDescription, setJobDescription] = useState("");
   const { resume_id } = useParams();
 
   const handleInputChange = (e) => {
@@ -94,6 +95,90 @@ function Summary({ resumeInfo, enanbledNext, enanbledPrev }) {
     return Award;
   };
 
+  // Function to generate content based on job description
+  const generateContentFromJobDescription = async () => {
+    if (!jobDescription.trim()) {
+      toast("Please enter a job description first");
+      return;
+    }
+    
+    setLoading(true);
+    try {
+      // Prompt to generate professional summary based on job description
+      const summaryPrompt = `Based on the following job description: "${jobDescription}", generate a professional summary that highlights relevant skills and experience for this role. Keep it concise in 2-3 sentences. Use information from the user's resume: ${JSON.stringify(resumeInfo)}. Only use skills and experiences that match the given resume data. Prioritize skills and experiences that are mentioned in the job description.`;
+      const summaryResult = await AIChatSession.sendMessage(summaryPrompt);
+      const generatedSummary = summaryResult.response.text();
+      
+      // Dispatch the new summary to update the form
+      setSummery(generatedSummary);
+      
+      // Update Experience sections to match the job description
+      if (resumeInfo?.experience && resumeInfo.experience.length > 0) {
+        const experiencePromises = resumeInfo.experience.map(async (exp, index) => {
+          const experiencePrompt = `Based on this job description: "${jobDescription}", optimize the following work experience to better match the role: Position: "${exp.title}", Company: "${exp.companyName}", Description: "${exp.workSummary}". Rewrite the workSummary to emphasize relevant skills and achievements that align with the job description, using action verbs and quantifiable results where possible. Keep the existing position title and company name, but modify the workSummary. Only use skills and experiences that match the given resume data. Format as JSON with title, companyName, and workSummary fields: {"title": "...", "companyName": "...", "workSummary": "...", "city": "...", "state": "...", "startDate": "...", "endDate": "...", "currentlyWorking": "..."} Use the original values for fields not mentioned in the prompt.`;
+          const expResult = await AIChatSession.sendMessage(experiencePrompt);
+          let updatedExp;
+          
+          try {
+            updatedExp = JSON.parse(expResult.response.text());
+          } catch (e) {
+            // If parsing fails, try to extract the work summary content
+            updatedExp = {
+              ...exp,
+              workSummary: expResult.response.text()
+            };
+          }
+          
+          return updatedExp;
+        });
+        
+        const updatedExperiences = await Promise.all(experiencePromises);
+        dispatch(
+          addResumeData({
+            ...resumeInfo,
+            experience: updatedExperiences
+          })
+        );
+      }
+      
+      // Update Project sections to match the job description
+      if (resumeInfo?.projects && resumeInfo.projects.length > 0) {
+        const projectPromises = resumeInfo.projects.map(async (proj, index) => {
+          const projectPrompt = `Based on this job description: "${jobDescription}", optimize the following project to better match the role: Project: "${proj.projectName}", Tech Stack: "${proj.techStack}", Summary: "${proj.projectSummary}". Rewrite the project summary to emphasize technologies and outcomes that align with the job description. Keep the project name and technology stack, but modify the projectSummary to better match the requirements. Only use skills and experiences that match the given resume data. Format as JSON with projectName, techStack, and projectSummary fields: {"projectName": "...", "techStack": "...", "projectSummary": "..."} Use the original values for fields not mentioned in the prompt.`;
+          const projResult = await AIChatSession.sendMessage(projectPrompt);
+          let updatedProj;
+          
+          try {
+            updatedProj = JSON.parse(projResult.response.text());
+          } catch (e) {
+            // If parsing fails, try to extract the project summary content
+            updatedProj = {
+              ...proj,
+              projectSummary: projResult.response.text()
+            };
+          }
+          
+          return updatedProj;
+        });
+        
+        const updatedProjects = await Promise.all(projectPromises);
+        dispatch(
+          addResumeData({
+            ...resumeInfo,
+            projects: updatedProjects
+          })
+        );
+      }
+      
+      toast("Professional Summary, Experience and Projects updated based on job description", "success");
+    } catch (error) {
+      console.log(error);
+      toast(`${error.message}`, `${error.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="space-y-8">
       
@@ -154,6 +239,43 @@ function Summary({ resumeInfo, enanbledNext, enanbledPrev }) {
                   />
                   <div className="absolute bottom-0 left-0 w-full h-0.5 bg-gray-200 rounded-full">
                     <div className="h-full bg-black rounded-full transition-all duration-300 scale-x-0 group-focus-within:scale-x-100 origin-left"></div>
+                  </div>
+                </div>
+                
+                {/* Job Description Input Field */}
+                <div className="space-y-4 mt-6 border-t border-gray-100 pt-6">
+                  <div className="flex justify-between items-center">
+                    <label className="text-sm font-medium text-gray-700 flex items-center space-x-2">
+                      <Briefcase className="w-4 h-4 text-gray-500" strokeWidth={2} />
+                      <span>Job Description</span>
+                    </label>
+                    <Button
+                      variant="outline"
+                      onClick={generateContentFromJobDescription}
+                      type="button"
+                      size="sm"
+                      disabled={loading}
+                      className="border-2 border-blue-600 text-blue-600 hover:bg-blue-600 hover:text-white transition-all duration-200 rounded-lg px-4 py-2 text-sm font-medium"
+                    >
+                      {loading ? (
+                        <LoaderCircle className="h-4 w-4 animate-spin mr-2" />
+                      ) : (
+                        <Sparkles className="h-4 w-4 mr-2" />
+                      )}
+                      {loading ? "Updating..." : "Update Content from Job Description"}
+                    </Button>
+                  </div>
+                  
+                  <div className="relative group">
+                    <Textarea
+                      value={jobDescription}
+                      onChange={(e) => setJobDescription(e.target.value)}
+                      placeholder="Paste the job description here to optimize your Professional Summary, Experience, and Projects to match the role..."
+                      className="min-h-[100px] w-full px-4 py-3 bg-gray-50 border-2 border-gray-200 rounded-lg text-gray-900 placeholder-gray-500 focus:bg-white focus:border-blue-500 focus:ring-0 transition-all duration-200 resize-none"
+                    />
+                    <div className="absolute bottom-0 left-0 w-full h-0.5 bg-gray-200 rounded-full">
+                      <div className="h-full bg-blue-500 rounded-full transition-all duration-300 scale-x-0 group-focus-within:scale-x-100 origin-left"></div>
+                    </div>
                   </div>
                 </div>
               </div>

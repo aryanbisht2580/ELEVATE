@@ -5,7 +5,7 @@ import {
   getALLResume,
   getResume,
   updateResume,
-  removeResume,
+  removeResume
 } from "../controller/resume.controller.js";
 import { isUserAvailable } from "../middleware/auth.js";
 

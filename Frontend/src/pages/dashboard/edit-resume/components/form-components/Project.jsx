@@ -27,6 +27,13 @@ function Project({ resumeInfo, setEnabledNext, setEnabledPrev }) {
     dispatch(addResumeData({ ...resumeInfo, projects: projectList }));
   }, [projectList]);
 
+  // Added to handle external updates from job description optimization
+  useEffect(() => {
+    if (resumeInfo?.projects && JSON.stringify(resumeInfo.projects) !== JSON.stringify(projectList)) {
+      setProjectList(resumeInfo?.projects || []);
+    }
+  }, [resumeInfo?.projects]);
+
   const addProject = () => {
     setProjectList([...projectList, formFields]);
   };

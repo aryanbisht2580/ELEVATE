@@ -17,12 +17,6 @@ import { Button } from "../ui/button";
 import { toast } from "sonner";
 import { Sparkles, LoaderCircle } from "lucide-react";
 
-const PROMPT = `Create a JSON object with the following fields:
-  "position_Title": A string representing the job title.
-  "experience": An array of strings, each representing a bullet point describing relevant experience for the given job title in html format.
-For the Job Title "{positionTitle}", create a JSON object with the following fields:
-The experience array should contain 5-7 bullet points. Each bullet point should be a concise description of a relevant skill, responsibility, or achievement.`;
-
 function RichTextEditor({ onRichTextEditorChange, index, resumeInfo }) {
   const [value, setValue] = useState(
     resumeInfo?.experience[index]?.workSummary || ""
@@ -33,37 +27,85 @@ function RichTextEditor({ onRichTextEditorChange, index, resumeInfo }) {
     onRichTextEditorChange(value);
   }, [value]);
 
-  const GenerateSummaryFromAI = async () => {
-    if (!resumeInfo?.experience[index]?.title) {
-      toast("Please Add Position Title");
+  const splitIntoBullets = (text) => {
+    // Try to parse if it's an array format
+    if (text.startsWith('[') && text.endsWith(']')) {
+      try {
+        const parsedArray = JSON.parse(text);
+        if (Array.isArray(parsedArray)) {
+          return parsedArray;
+        }
+      } catch (e) {
+        console.error("Could not parse AI response as array:", e);
+      }
+    }
+
+    // Check if the text contains dash-based bullet points (e.g., "- point")
+    if (text.includes('\n- ') || text.startsWith('- ')) {
+      // Split by lines that start with "- "
+      const lines = text.split('\n');
+      const bulletPoints = lines
+        .map(line => line.trim())
+        .filter(line => line.startsWith('- '))
+        .map(line => line.substring(2).trim()) // Remove the "- " prefix
+        .filter(s => s.length > 0);
+      
+      if (bulletPoints.length > 0) {
+        return bulletPoints;
+      }
+    }
+    
+    // If it's plain text, try to split by common sentence separators
+    // This handles responses that might have multiple sentences or points
+    let sentences = text.split(/(?<!\w\.\w.)(?<![A-Z][a-z]\.)(?<=\.|\?|\!)\s+(?=[A-Z])/);
+    
+    // If the above doesn't work well, try splitting by newlines
+    if (sentences.length <= 1) {
+      sentences = text.split(/\n/);
+    }
+    
+    // Clean up the sentences and remove empty strings
+    return sentences
+      .map(s => s.trim())
+      .filter(s => s.length > 0);
+  };
+
+  const EnhanceSummaryFromAI = async () => {
+    if (!value.trim()) {
+      toast("Please enter some content to enhance");
       return;
     }
 
     setLoading(true);
 
-    const prompt = PROMPT.replace(
-      "{positionTitle}",
-      resumeInfo.experience[index].title
-    );
-
-    const result = await AIChatSession.sendMessage(prompt);
-    const resp = JSON.parse(result.response.text());
-
-    setValue(
-      resp.experience
-        ? resp.experience.join("")
-        : resp.experience_bullets?.join("")
-    );
-
-    setLoading(false);
+    try {
+      const prompt = `Please enhance and improve the following job description and achievements. Make it more professional, impactful, and keyword-rich for a resume. Format as bullet points with dashes. Keep the core meaning but make it more compelling and effective. Return only the text:\n\n${value}`;
+      
+      const result = await AIChatSession.sendMessage(prompt);
+      const aiResponse = result.response.text();
+      
+      // Split the response into bullet points
+      const bulletPoints = splitIntoBullets(aiResponse);
+      
+      // Convert to HTML list format
+      const bulletHTML = `<ul>${bulletPoints.map(point => `<li>${point}</li>`).join('')}</ul>`;
+      
+      setValue(bulletHTML);
+      onRichTextEditorChange(bulletHTML);
+    } catch (error) {
+      toast("Error enhancing content", "error");
+      console.error("AI Enhancement Error:", error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
     <div className="bg-white text-black border border-gray-300 p-4 rounded">
       <div className="flex justify-between items-center mb-2">
-        <label className="text-sm font-medium">Summary</label>
+        <label className="text-sm font-medium">Job Description & Achievements</label>
         <Button
-          onClick={GenerateSummaryFromAI}
+          onClick={EnhanceSummaryFromAI}
           disabled={loading}
           className="bg-white text-black border border-black hover:bg-gray-100 px-3 py-1 text-sm flex items-center gap-2"
         >
@@ -72,7 +114,7 @@ function RichTextEditor({ onRichTextEditorChange, index, resumeInfo }) {
           ) : (
             <>
               <Sparkles className="h-4 w-4" />
-              Generate from AI
+              Enhance with AI
             </>
           )}
         </Button>

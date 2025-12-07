@@ -34,6 +34,13 @@ function Experience({ resumeInfo, enanbledNext, enanbledPrev }) {
     }
   }, [experienceList]);
 
+  // Added to handle external updates from job description optimization
+  useEffect(() => {
+    if (resumeInfo?.experience && JSON.stringify(resumeInfo.experience) !== JSON.stringify(experienceList)) {
+      setExperienceList(resumeInfo?.experience || []);
+    }
+  }, [resumeInfo?.experience]);
+
   const addExperience = () => {
     if (!experienceList) {
       setExperienceList([formFields]);
