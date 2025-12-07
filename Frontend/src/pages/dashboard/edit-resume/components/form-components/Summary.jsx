@@ -211,21 +211,7 @@ function Summary({ resumeInfo, enanbledNext, enanbledPrev }) {
                     <span>Professional Summary</span>
                     <span className="text-red-500">*</span>
                   </label>
-                  <Button
-                    variant="outline"
-                    onClick={() => GenerateSummeryFromAI()}
-                    type="button"
-                    size="sm"
-                    disabled={loading}
-                    className="border-2 border-black text-black hover:bg-black hover:text-white transition-all duration-200 rounded-lg px-4 py-2 text-sm font-medium"
-                  >
-                    {loading ? (
-                      <LoaderCircle className="h-4 w-4 animate-spin mr-2" />
-                    ) : (
-                      <Sparkles className="h-4 w-4 mr-2" />
-                    )}
-                    {loading ? "Generating..." : "Generate with AI"}
-                  </Button>
+                  
                 </div>
                 
                 <div className="relative group">
